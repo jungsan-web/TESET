@@ -1,6 +1,6 @@
 import os
 import requests
-from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
 
 
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
@@ -15,14 +15,6 @@ if not WEBHOOK_URL:
     raise Exception("WEBHOOK_URL 없음")
 
 
-headers = {
-    "User-Agent": (
-        "Mozilla/5.0 "
-        "(Windows NT 10.0; Win64; x64)"
-    )
-}
-
-
 def send_discord(message):
     requests.post(
         WEBHOOK_URL,
@@ -32,82 +24,91 @@ def send_discord(message):
     )
 
 
-response = requests.get(
-    BOARD_URL,
-    headers=headers
-)
+with sync_playwright() as p:
 
-response.raise_for_status()
-
-soup = BeautifulSoup(
-    response.text,
-    "html.parser"
-)
-
-
-# FMKorea 게시글 영역 확인
-articles = soup.select(
-    "li.li"
-)
-
-
-print(
-    "게시글 개수:",
-    len(articles)
-)
-
-
-found = False
-
-
-for article in articles:
-
-    title = article.select_one(
-        ".title"
+    browser = p.chromium.launch(
+        headless=True
     )
 
-    if not title:
-        continue
-
-
-    writer = article.select_one(
-        ".author"
-    )
-
-    if not writer:
-        continue
-
-
-    writer_name = writer.get_text(
-        strip=True
+    page = browser.new_page(
+        user_agent=(
+            "Mozilla/5.0 "
+            "(Windows NT 10.0; Win64; x64)"
+        )
     )
 
 
-    if writer_name == NICKNAME:
+    page.goto(
+        BOARD_URL,
+        wait_until="networkidle",
+        timeout=30000
+    )
 
-        link = title.get("href")
 
-        if link.startswith("/"):
-            link = (
-                "https://www.fmkorea.com"
-                + link
+    html = page.content()
+
+
+    # 게시글 찾기
+    rows = page.locator(
+        "table.bd_lst tbody tr"
+    )
+
+
+    count = rows.count()
+
+    print(
+        "게시글 수:",
+        count
+    )
+
+
+    found = False
+
+
+    for i in range(count):
+
+        row = rows.nth(i)
+
+        text = row.inner_text()
+
+
+        if NICKNAME in text:
+
+            title = row.locator(
+                ".title a"
+            ).inner_text()
+
+
+            link = row.locator(
+                ".title a"
+            ).get_attribute(
+                "href"
             )
 
 
-        send_discord(
-            f"""
+            if link.startswith("/"):
+                link = (
+                    "https://www.fmkorea.com"
+                    + link
+                )
+
+
+            send_discord(
+                f"""
 🔔 FMKorea 새 글 발견
 
 작성자 : {NICKNAME}
-제목 : {title.text.strip()}
+제목 : {title}
 
 {link}
 """
-        )
+            )
 
-        found = True
-        break
+            found = True
+            break
 
+
+    browser.close()
 
 
 if not found:
@@ -117,4 +118,4 @@ if not found:
     )
 
 
-print("FMKorea 확인 완료")
+print("확인 완료")
