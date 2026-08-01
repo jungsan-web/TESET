@@ -18,11 +18,11 @@ jobs:
         with:
           python-version: "3.12"
 
-- name: 라이브러리 설치
-  run: pip install -r requirements.txt
+      - name: 라이브러리 설치
+        run: pip install -r requirements.txt
 
-- name: Playwright 설치
-  run: playwright install chromium
+      - name: Chromium 설치
+        run: playwright install chromium
 
       - name: Python 실행
         run: python main_test.py
