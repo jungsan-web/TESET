@@ -31,30 +31,44 @@ with sync_playwright() as p:
     )
 
     page = browser.new_page(
+        viewport={
+            "width": 1280,
+            "height": 2000
+        },
         user_agent=(
-            "Mozilla/5.0 "
-            "(Windows NT 10.0; Win64; x64)"
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 Chrome/120 Safari/537.36"
         )
     )
 
 
+    print("FMKorea 접속 시작")
+
+
     page.goto(
         BOARD_URL,
-        wait_until="networkidle",
-        timeout=30000
+        wait_until="domcontentloaded",
+        timeout=60000
     )
 
 
-    html = page.content()
+    page.wait_for_timeout(5000)
 
 
-    # 게시글 찾기
+    print(
+        "페이지 제목:",
+        page.title()
+    )
+
+
+    # 게시글 영역 확인
     rows = page.locator(
         "table.bd_lst tbody tr"
     )
 
 
     count = rows.count()
+
 
     print(
         "게시글 수:",
@@ -104,11 +118,13 @@ with sync_playwright() as p:
 """
             )
 
+
             found = True
             break
 
 
     browser.close()
+
 
 
 if not found:
