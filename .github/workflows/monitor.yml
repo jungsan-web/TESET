@@ -22,6 +22,6 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Python 실행
-        run: python main.py
+        run: python main_test.py
         env:
           WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
