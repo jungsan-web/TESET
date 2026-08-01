@@ -1,24 +1,20 @@
 import os
-import json
 import requests
 from bs4 import BeautifulSoup
+import urllib.parse
+
 
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
-# 테스트할 닉네임
+# 테스트 닉네임
 NICKNAME = "doetlho"
 
 # FMKorea 주식 게시판
-SEARCH_URL = (
-    "https://www.fmkorea.com/search.php"
-    "?mid=stock"
-    "&search_target=nick_name"
-    f"&search_keyword={NICKNAME}"
-)
+BOARD_URL = "https://www.fmkorea.com/index.php?mid=stock"
 
 
 if not WEBHOOK_URL:
-    raise Exception("WEBHOOK_URL이 설정되지 않았습니다.")
+    raise Exception("WEBHOOK_URL이 없습니다.")
 
 
 headers = {
@@ -26,10 +22,22 @@ headers = {
 }
 
 
+def send_discord(message):
+    requests.post(
+        WEBHOOK_URL,
+        json={
+            "content": message
+        }
+    )
+
+
+# 게시판 가져오기
 response = requests.get(
-    SEARCH_URL,
+    BOARD_URL,
     headers=headers
 )
+
+response.encoding = "utf-8"
 
 soup = BeautifulSoup(
     response.text,
@@ -37,44 +45,73 @@ soup = BeautifulSoup(
 )
 
 
-# 검색 결과 첫 번째 글 확인
-post = soup.select_one(
+posts = soup.select(
     "table.bd_lst tbody tr"
 )
 
 
-if post:
+found = False
 
-    title = post.select_one(
+
+for post in posts:
+
+    # 제목
+    title_tag = post.select_one(
         ".title a"
-    ).text.strip()
+    )
 
-    link = post.select_one(
-        ".title a"
-    )["href"]
+    if not title_tag:
+        continue
 
-    message = f"""
+
+    title = title_tag.text.strip()
+
+    link = title_tag.get("href")
+
+
+    # 작성자
+    writer = post.select_one(
+        ".author"
+    )
+
+
+    if not writer:
+        continue
+
+
+    writer_name = writer.text.strip()
+
+
+    if writer_name == NICKNAME:
+
+        found = True
+
+
+        if link.startswith("/"):
+            link = "https://www.fmkorea.com" + link
+
+
+        message = f"""
 🔔 FMKorea 새 글 발견
 
 작성자 : {NICKNAME}
 제목 : {title}
 
-https://www.fmkorea.com{link}
+{link}
 """
 
-else:
 
-    message = (
-        f"현재 {NICKNAME} 님의 새 글이 없습니다."
+        send_discord(message)
+
+        break
+
+
+
+if not found:
+
+    send_discord(
+        f"현재 {NICKNAME} 작성 글 없음"
     )
 
 
-requests.post(
-    WEBHOOK_URL,
-    json={
-        "content": message
-    }
-)
-
-
-print(message)
+print("확인 완료")
