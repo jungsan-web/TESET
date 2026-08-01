@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 # 테스트할 닉네임
-NICKNAME = "doetlho"
+NICKNAME = "노라무"
 
 # FMKorea 주식 게시판
 SEARCH_URL = (
