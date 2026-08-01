@@ -1,7 +1,6 @@
 import os
 import requests
 from bs4 import BeautifulSoup
-import urllib.parse
 
 
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
@@ -9,16 +8,18 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 # 테스트 닉네임
 NICKNAME = "doetlho"
 
-# FMKorea 주식 게시판
 BOARD_URL = "https://www.fmkorea.com/index.php?mid=stock"
 
 
 if not WEBHOOK_URL:
-    raise Exception("WEBHOOK_URL이 없습니다.")
+    raise Exception("WEBHOOK_URL 없음")
 
 
 headers = {
-    "User-Agent": "Mozilla/5.0"
+    "User-Agent": (
+        "Mozilla/5.0 "
+        "(Windows NT 10.0; Win64; x64)"
+    )
 }
 
 
@@ -31,13 +32,12 @@ def send_discord(message):
     )
 
 
-# 게시판 가져오기
 response = requests.get(
     BOARD_URL,
     headers=headers
 )
 
-response.encoding = "utf-8"
+response.raise_for_status()
 
 soup = BeautifulSoup(
     response.text,
@@ -45,64 +45,67 @@ soup = BeautifulSoup(
 )
 
 
-posts = soup.select(
-    "table.bd_lst tbody tr"
+# FMKorea 게시글 영역 확인
+articles = soup.select(
+    "li.li"
+)
+
+
+print(
+    "게시글 개수:",
+    len(articles)
 )
 
 
 found = False
 
 
-for post in posts:
+for article in articles:
 
-    # 제목
-    title_tag = post.select_one(
-        ".title a"
+    title = article.select_one(
+        ".title"
     )
 
-    if not title_tag:
+    if not title:
         continue
 
 
-    title = title_tag.text.strip()
-
-    link = title_tag.get("href")
-
-
-    # 작성자
-    writer = post.select_one(
+    writer = article.select_one(
         ".author"
     )
-
 
     if not writer:
         continue
 
 
-    writer_name = writer.text.strip()
+    writer_name = writer.get_text(
+        strip=True
+    )
 
 
     if writer_name == NICKNAME:
 
-        found = True
-
+        link = title.get("href")
 
         if link.startswith("/"):
-            link = "https://www.fmkorea.com" + link
+            link = (
+                "https://www.fmkorea.com"
+                + link
+            )
 
 
-        message = f"""
+        send_discord(
+            f"""
 🔔 FMKorea 새 글 발견
 
 작성자 : {NICKNAME}
-제목 : {title}
+제목 : {title.text.strip()}
 
 {link}
 """
+        )
 
-
-        send_discord(message)
-
+        found = True
         break
 
 
@@ -114,4 +117,4 @@ if not found:
     )
 
 
-print("확인 완료")
+print("FMKorea 확인 완료")
